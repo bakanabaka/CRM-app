@@ -88,14 +88,12 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: () {
                     String email = emailController.text.trim();
                     String password = passwordController.text.trim();
-
                     FirebaseAuth.instance
                         .signInWithEmailAndPassword(
                       email: email,
                       password: password,
                     )
                         .then((userCredential) {
-                      // Login successful
                       User? user = userCredential.user;
                       FirebaseFirestore.instance
                           .collection('adder')
@@ -133,7 +131,7 @@ class _LoginPageState extends State<LoginPage> {
                           actions: [
                             TextButton(
                               onPressed: () {
-                                Navigator.of(context).pop(); // Close the dialog
+                                Navigator.of(context).pop(); 
                               },
                               child: const Text('OK'),
                             ),

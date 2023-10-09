@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddPage extends StatelessWidget {
   const AddPage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final User? user = FirebaseAuth.instance.currentUser;
     final TextEditingController nameController = TextEditingController();
     final TextEditingController emailController = TextEditingController();
     final TextEditingController phoneController = TextEditingController();
@@ -15,10 +18,7 @@ class AddPage extends StatelessWidget {
     final TextEditingController assignedToController = TextEditingController();
 
     void submitForm() async {
-      // Access the Firestore instance
       final FirebaseFirestore firestore = FirebaseFirestore.instance;
-
-      // Prepare the data to be stored in Firestore
       final data = {
         'name': nameController.text,
         'email': emailController.text,
@@ -30,14 +30,14 @@ class AddPage extends StatelessWidget {
         'description': descriptionController.text,
         'assigned_to': assignedToController.text,
         'priority': 0,
+        'label': "",
         'days': 0,
+        'summary': ""
       };
-
-      // Store the data in Firestore
       await firestore
           .collection('adder')
           .doc('personal_info')
-          .collection('Info')
+          .collection(user?.email ?? '')
           .add(data);
       await firestore
           .collection('reciever')
@@ -45,7 +45,6 @@ class AddPage extends StatelessWidget {
           .collection(assignedToController.text)
           .add(data);
 
-      // Reload the page
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const AddPage()),

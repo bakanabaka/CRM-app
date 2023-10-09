@@ -34,6 +34,7 @@ class RecieverPage extends StatefulWidget {
 }
 
 class _RecieverPageState extends State<RecieverPage> {
+  final User? user = FirebaseAuth.instance.currentUser;
   void navigateToDetailsPage(String documentId) {
     Navigator.push(
       context,
@@ -71,24 +72,21 @@ class _RecieverPageState extends State<RecieverPage> {
         await FirebaseFirestore.instance
             .collection('reciever')
             .doc('lead_info')
-            .collection('b@gmail.com')
+            .collection(user?.email ?? '')
             .doc(documentId)
             .get();
     if (oldDocumentSnapshot.exists) {
-      // Get the data as a Map
       Map<String, dynamic> data = oldDocumentSnapshot.data()!;
-
-      // Add to the new collection
       await FirebaseFirestore.instance
           .collection('reciever')
           .doc('completed')
-          .collection('b@gmail.com')
+          .collection(user?.email ?? '')
           .doc(documentId)
           .set(data);
       await FirebaseFirestore.instance
           .collection('reciever')
           .doc('lead_info')
-          .collection('b@gmail.com')
+          .collection(user?.email ?? '')
           .doc(documentId)
           .delete();
     }
@@ -112,7 +110,6 @@ class _RecieverPageState extends State<RecieverPage> {
   int count = 0;
   Map<String, int> documentCounts = {};
   Timer? timer;
-
   @override
   void initState() {
     super.initState();
@@ -129,27 +126,24 @@ class _RecieverPageState extends State<RecieverPage> {
     FirebaseFirestore.instance
         .collection('reciever')
         .doc('lead_info')
-        .collection('b@gmail.com')
+        .collection(user?.email ?? '')
         .get()
         .then((snapshot) {
       for (var doc in snapshot.docs) {
         documentCounts[doc.id] = doc.data()['days'] ?? 0;
       }
+      print(documentCounts);
       print('Initial counts retrieved successfully');
     }).catchError(
             (error) => print('Failed to retrieve initial counts: $error'));
   }
 
   void startTimer() {
-    const duration = Duration(seconds: 15);
+    const duration = Duration(seconds: 1500);
     timer = Timer.periodic(duration, (Timer t) {
       setState(() {
         for (var documentId in documentCounts.keys) {
-          if (documentCounts[documentId] == 0) {
-            documentCounts[documentId] = 1;
-          } else {
-            documentCounts[documentId] = (documentCounts[documentId] ?? 0) + 1;
-          }
+          documentCounts[documentId] = (documentCounts[documentId] ?? 0) + 1;
         }
       });
       updateFirebaseDays();
@@ -163,33 +157,37 @@ class _RecieverPageState extends State<RecieverPage> {
         await FirebaseFirestore.instance
             .collection('reciever')
             .doc('lead_info')
-            .collection('b@gmail.com')
+            .collection(user?.email ?? '')
             .doc(documentId)
             .update({'days': days});
-        // print('Firebase update successful');
+        // print('Count reset successful');
+        print(documentCounts);
       } catch (error) {
         print('Firebase update failed: $error');
       }
     }
   }
 
-  void resetCount(String documentId) {
-    documentCounts[documentId] = 0;
-    FirebaseFirestore.instance
-        .collection('reciever')
-        .doc('lead_info')
-        .collection('b@gmail.com')
-        .doc(documentId)
-        .update({'days': 0}).then((_) {
+  Future<void> resetCount(String documentId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('reciever')
+          .doc('lead_info')
+          .collection(user?.email ?? '')
+          .doc(documentId)
+          .update({'days': 0});
+
       setState(() {
         documentCounts[documentId] = 0;
       });
+      print(documentCounts);
       print('Count reset successful');
-      updateFirebaseDays(); // Update Firestore documents with the updated counts
-      fetchInitialCounts(); // Fetch updated counts after reset
-    }).catchError((error) {
+
+      await updateFirebaseDays();
+      fetchInitialCounts();
+    } catch (error) {
       print('Count reset failed: $error');
-    });
+    }
   }
 
   @override
@@ -200,35 +198,52 @@ class _RecieverPageState extends State<RecieverPage> {
 
   @override
   Widget build(BuildContext context) {
+    final User? user = FirebaseAuth.instance.currentUser;
     if (documentCounts.isNotEmpty) {
       documentCounts.forEach((documentId, count) {
         if (count > 5) {
-          Future.delayed(Duration.zero, () {
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: Text('Count Alert'),
-                  content:
-                      Text('Count is greater than 5 for user: $documentId'),
-                  actions: [
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        updateFirebaseDays();
-                      },
-                      child: Text('OK'),
-                    ),
-                  ],
-                );
-              },
-            );
+          FirebaseFirestore.instance
+              .collection('reciever')
+              .doc('lead_info')
+              .collection(user?.email ?? '')
+              .doc(documentId)
+              .get()
+              .then((docSnapshot) {
+            if (docSnapshot.exists) {
+              if (docSnapshot.data() != null &&
+                  docSnapshot.data()!.containsKey('name')) {
+                String userName = docSnapshot.data()!['name'];
+
+                Future.delayed(Duration.zero, () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('Count Alert'),
+                        content:
+                            Text('Count is greater than 5 for user: $userName'),
+                        actions: [
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              updateFirebaseDays();
+                              resetCount(documentId);
+                            },
+                            child: Text('OK'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                });
+              }
+            }
           });
         }
       });
     }
 
-    final User? user = FirebaseAuth.instance.currentUser;
+    // final User? user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Success'),
@@ -241,10 +256,8 @@ class _RecieverPageState extends State<RecieverPage> {
               leading: Icon(navigationOptions[index]['icon']),
               title: Text(navigationOptions[index]['title']),
               onTap: () {
-                // Perform navigation based on the selected option
-                Navigator.pop(context); // Close the sidebar
+                Navigator.pop(context);
                 if (index == 0) {
-                  // Option 1 selected
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -252,7 +265,6 @@ class _RecieverPageState extends State<RecieverPage> {
                     ),
                   );
                 } else if (index == 1) {
-                  // Option 2 selected
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -271,7 +283,7 @@ class _RecieverPageState extends State<RecieverPage> {
               .collection('reciever')
               .doc('lead_info')
               // .collection(user?.email ?? '')
-              .collection(user?.email ?? 'b@gmail.com')
+              .collection(user?.email ?? '')
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -284,7 +296,6 @@ class _RecieverPageState extends State<RecieverPage> {
             } else if (snapshot.hasData) {
               final documents = snapshot.data!.docs;
 
-              // Sort documents based on priority value
               documents.sort((a, b) {
                 final priorityA = a['priority'] as int? ?? 0;
                 final priorityB = b['priority'] as int? ?? 0;
@@ -420,31 +431,6 @@ class _RecieverPageState extends State<RecieverPage> {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            // Container(
-                            //   child: Row(
-                            //     children: [
-                            //       Expanded(
-                            //         child: Column(
-                            //           children: [
-                            //             Text(
-                            //               'Priority:',
-                            //               style: TextStyle(
-                            //                 color:
-                            //                     Colors.black.withOpacity(0.7),
-                            //                 fontWeight: FontWeight.bold,
-                            //               ),
-                            //             ),
-                            //             const SizedBox(height: 4),
-                            //             Text(priority != -1
-                            //                 ? priority.toString()
-                            //                 : ''),
-                            //             const SizedBox(height: 6),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
                             const SizedBox(
                               height: 1,
                             ),
@@ -467,15 +453,7 @@ class _RecieverPageState extends State<RecieverPage> {
                                         const SizedBox(height: 6),
                                         Padding(
                                           padding: const EdgeInsets.only(
-                                              right:
-                                                  28.0), // Adjust the left padding as needed
-                                          // child: IconButton(
-                                          //   onPressed: () {
-                                          //     deleteData(document.id);
-                                          //   },
-                                          //   icon: const Icon(Icons.delete),
-                                          //   color: Colors.red,
-                                          // ),
+                                              right: 28.0),
                                         ),
                                       ],
                                     ),

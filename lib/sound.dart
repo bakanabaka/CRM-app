@@ -1,103 +1,183 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:term/firebase_options.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MaterialApp(
-    home: IncrementCountWidget(),
-  ));
+void main() {
+  runApp(MyApp());
 }
 
-class IncrementCountWidget extends StatefulWidget {
+class MyApp extends StatelessWidget {
   @override
-  _IncrementCountWidgetState createState() => _IncrementCountWidgetState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Speech to Text Demo',
+      home: SpeechToTextWidget(),
+    );
+  }
 }
 
-class _IncrementCountWidgetState extends State<IncrementCountWidget> {
-  int count = 0;
-  Timer? timer;
+class SpeechToTextWidget extends StatefulWidget {
+  @override
+  _SpeechToTextWidgetState createState() => _SpeechToTextWidgetState();
+}
+
+class _SpeechToTextWidgetState extends State<SpeechToTextWidget> {
+  stt.SpeechToText? _speech;
+  bool _isListening = false;
+  String _generatedText = '';
+  String _summarizedText = '';
 
   @override
   void initState() {
     super.initState();
-    startTimer();
-  }
-
-  void startTimer() {
-    const duration = Duration(seconds: 120);
-    timer = Timer.periodic(duration, (Timer t) {
-      setState(() {
-        count++;
-      });
-      updateFirebaseDays(
-          count); // Update Firestore document with the updated count
-    });
-  }
-
-  void updateFirebaseDays(int days) {
-    FirebaseFirestore.instance
-        .collection('reciever')
-        .doc('lead_info')
-        .collection('b@gmail.com')
-        .get()
-        .then((snapshot) {
-      for (var doc in snapshot.docs) {
-        doc.reference.update({'days': days});
-      }
-      print('Firebase update successful');
-    }).catchError((error) => print('Firebase update failed: $error'));
-  }
-
-  @override
-  void dispose() {
-    timer?.cancel(); // Cancel the timer when the widget is disposed
-    super.dispose();
+    _speech = stt.SpeechToText();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (count > 2) {
-      Future.delayed(Duration.zero, () {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text('Count Alert'),
-              content: Text('Count is greater than 10'),
-              actions: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    updateFirebaseDays(0);
-                  },
-                  child: Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
-      });
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Increment Count'),
+        title: Text('Speech to Text Demo'),
       ),
-      // body: Center(
-      //   child: Column(
-      //     mainAxisAlignment: MainAxisAlignment.center,
-      //     children: [
-      //       Text(
-      //         'Count: $count',
-      //         style: TextStyle(fontSize: 24),
-      //       ),
-      //     ],
-      //   ),
-      // ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Generated Text:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(_generatedText),
+              SizedBox(height: 16),
+              Text(
+                'Summarized Text:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(_summarizedText),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _isListening ? _stopListening : _startListening,
+                child:
+                    Text(_isListening ? 'Stop Listening' : 'Start Listening'),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  backgroundColor: Colors.amber,
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                ),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  _summarizedText = 'Loading...';
+                  // print(_generatedText);
+                  _summarize();
+                },
+                child: Text('Summarize Generated Text'),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  backgroundColor: Colors.amber,
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Text('Summarized Text: $_summarizedText'),
+              // print(_summarizedText),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, _summarizedText);
+                },
+                child: Text('Save'),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  backgroundColor: Colors.amber,
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  void _startListening() async {
+    bool available = await _speech!.initialize(
+      onError: (error) {
+        print('Error: $error');
+        setState(() {
+          _isListening = false;
+        });
+      },
+    );
+
+    if (available) {
+      _speech!.listen(
+        onResult: (result) {
+          setState(() {
+            _generatedText = result.recognizedWords;
+          });
+        },
+      );
+      setState(() {
+        _isListening = true;
+      });
+    } else {
+      print("The user has denied the use of speech recognition.");
+    }
+  }
+
+  void _stopListening() {
+    _speech!.stop();
+    setState(() {
+      _isListening = false;
+    });
+  }
+
+  void _summarize() async {
+    final String apiUrl = "http://localhost:5000/ap";
+
+    Map<String, String> headers = {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Allow-Headers":
+          "Origin,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,locale",
+      "Access-Control-Allow-Methods": "POST, OPTIONS"
+    };
+
+    Map<String, String> data = {
+      "long_text": _generatedText,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: headers,
+        body: json.encode(data),
+      );
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> result = json.decode(response.body);
+        setState(() {
+          _summarizedText = result["summary"] ?? "No summary available.";
+          print("Summary: $_summarizedText");
+        });
+      } else {
+        print("Failed to get summary. Error: ${response.reasonPhrase}");
+      }
+    } catch (e) {
+      print("Error: $e");
+    }
   }
 }

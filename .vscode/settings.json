@@ -1,3 +1,7 @@
 {
-    "cmake.sourceDirectory": "C:/flutterapps/term/linux"
+    "cmake.sourceDirectory": "C:/flutterapps/term/linux",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.formatting.provider": "none"
 }

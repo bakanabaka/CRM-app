@@ -4,6 +4,9 @@ import 'package:term/pdf_viewer_crm/pdf/pdf_page.dart';
 import 'package:term/pdf_viewer_crm/pdf/pdf_page_comp.dart';
 import 'package:term/reciever_page.dart';
 import 'package:term/user_template.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Completed extends StatefulWidget {
   const Completed({super.key});
@@ -48,6 +51,7 @@ class Comp extends StatelessWidget {
       );
     }
 
+    final User? user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Completed'),
@@ -60,10 +64,8 @@ class Comp extends StatelessWidget {
               leading: Icon(navigationOptions[index]['icon']),
               title: Text(navigationOptions[index]['title']),
               onTap: () {
-                // Perform navigation based on the selected option
-                Navigator.pop(context); // Close the sidebar
+                Navigator.pop(context);
                 if (index == 0) {
-                  // Option 1 selected
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -71,7 +73,6 @@ class Comp extends StatelessWidget {
                     ),
                   );
                 } else if (index == 1) {
-                  // Option 2 selected
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -90,7 +91,7 @@ class Comp extends StatelessWidget {
               .collection('reciever')
               .doc('completed')
               // .collection(user?.email ?? '')
-              .collection('b@gmail.com')
+              .collection(user?.email ?? '')
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -231,31 +232,6 @@ class Comp extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            // Container(
-                            //   child: Row(
-                            //     children: [
-                            //       Expanded(
-                            //         child: Column(
-                            //           children: [
-                            //             Text(
-                            //               'Priority:',
-                            //               style: TextStyle(
-                            //                 color:
-                            //                     Colors.black.withOpacity(0.7),
-                            //                 fontWeight: FontWeight.bold,
-                            //               ),
-                            //             ),
-                            //             const SizedBox(height: 4),
-                            //             Text(priority != -1
-                            //                 ? priority.toString()
-                            //                 : ''),
-                            //             const SizedBox(height: 6),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
                             const SizedBox(
                               height: 1,
                             ),
@@ -278,15 +254,7 @@ class Comp extends StatelessWidget {
                                         const SizedBox(height: 6),
                                         Padding(
                                           padding: const EdgeInsets.only(
-                                              right:
-                                                  28.0), // Adjust the left padding as needed
-                                          // child: IconButton(
-                                          //   onPressed: () {
-                                          //     deleteData(document.id);
-                                          //   },
-                                          //   icon: const Icon(Icons.delete),
-                                          //   color: Colors.red,
-                                          // ),
+                                              right: 28.0),
                                         ),
                                       ],
                                     ),

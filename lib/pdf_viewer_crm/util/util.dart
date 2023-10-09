@@ -8,6 +8,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:term/pdf_viewer_crm/util/url_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 Future<Uint8List> generatePdf(
     final PdfPageFormat format, String documentId) async {
@@ -18,10 +20,11 @@ Future<Uint8List> generatePdf(
   // final logoImage = pw.MemoryImage(
   //   (await rootBundle.load('assets/header.png')).buffer.asUint8List(),
   // );
+  final User? user = FirebaseAuth.instance.currentUser;
   final snapshot = await FirebaseFirestore.instance
       .collection('reciever')
       .doc('lead_info')
-      .collection('b@gmail.com')
+      .collection(user?.email ?? '')
       .doc(documentId)
       .get();
 

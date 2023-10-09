@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:term/add_page.dart';
 import 'package:term/firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,12 +32,12 @@ class SuccessPage extends StatefulWidget {
 
 class _SuccessPageState extends State<SuccessPage> {
   final bool _isSidebarOpen = false;
-
+  final User? user = FirebaseAuth.instance.currentUser;
   Future<void> deleteData(String documentId) async {
     await FirebaseFirestore.instance
         .collection('adder')
         .doc('personal_info')
-        .collection('Info')
+        .collection(user?.email ?? '')
         .doc(documentId)
         .delete();
   }
@@ -51,7 +53,7 @@ class _SuccessPageState extends State<SuccessPage> {
           stream: FirebaseFirestore.instance
               .collection('adder')
               .doc('personal_info')
-              .collection('Info')
+              .collection(user?.email ?? '')
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -196,9 +198,8 @@ class _SuccessPageState extends State<SuccessPage> {
                                       Text(description),
                                       const SizedBox(height: 6),
                                       Padding(
-                                        padding: const EdgeInsets.only(
-                                            right:
-                                                28.0), // Adjust the left padding as needed
+                                        padding:
+                                            const EdgeInsets.only(right: 28.0),
                                         child: IconButton(
                                           onPressed: () {
                                             deleteData(document.id);
@@ -229,7 +230,6 @@ class _SuccessPageState extends State<SuccessPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Redirect to another page
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddPage()),
